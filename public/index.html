@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Todo List</title>
+	<link rel="stylesheet" href="/css/base.css">
+	<link rel="stylesheet" href="/css/index.css">
+</head>
+
+<body>
+	<section class="todoapp" id="container">
+		<header class="header">
+			<h1>todos - {{ msg }}</h1>
+			<input class="new-todo" placeholder="What needs to be done?" autofocus @keyup.enter="addTask"
+				v-model="taskName">
+		</header>
+		<!-- This section should be hidden by default and shown when there are todos -->
+		<section class="main">
+			<input class="toggle-all" type="checkbox">
+			<label for="toggle-all">Mark all as complete</label>
+			<ul class="todo-list">
+				<!-- These are here just to show the structure of the list items -->
+				<!-- List items should get the class `editing` when editing and `completed` when marked as completed -->
+				<li v-for="task in taskList" :class="{ completed: task.completed, editing: task.__editing }">
+					<div class="view">
+						<input class="toggle" type="checkbox" v-model="task.completed" @change="updateStatus(task)">
+						<label @dblclick="dblclickTitle(task)">{{ task.title }}</label>
+						<button class="destroy" @click="deleteTask(task._id)"></button>
+					</div>
+					<input class="edit" v-model="task.title" @blur="updateTitle(task)">
+				</li>
+			</ul>
+		</section>
+		<!-- This footer should hidden by default and shown when there are todos -->
+		<footer class="footer">
+			<!-- This should be `0 items left` by default -->
+			<span class="todo-count"><strong>{{ activeCount }}</strong> item left</span>
+			<!-- Remove this if you don't implement routing -->
+			<ul class="filters">
+				<li>
+					<a href="javascript:;" :class="{ selected: curList == 'all' }" @click="filterAll">All</a>
+				</li>
+				<li>
+					<a href="javascript:;" @click="filterActive" :class="{ selected: curList == 'active' }">Active</a>
+				</li>
+				<li>
+					<a href="javascript:;" @click="filterCompleted"
+						:class="{ selected: curList == 'completed' }">Completed</a>
+				</li>
+			</ul>
+			<!-- Hidden if no completed items are left ↓ -->
+			<button class="clear-completed" @click="clearCompleted">Clear completed</button>
+		</footer>
+	</section>
+
+	<script src="/lib/axios.js"></script>
+	<script src="/lib/vue.js"></script>
+
+	<script>
+
+		// axios.get('/task/list').then((res) => {
+		// 	if (res.status == 200) {
+		// 		console.log(res.data);
+		// 	}
+		// });
+
+		new Vue({
+			el: '#container',
+			data: {
+				msg: 'hello vue',
+				taskName: '',
+				taskList: [],
+				originTaskList: [],
+				curList: 'all'
+			},
+			computed: {
+				activeCount() {
+					return this.taskList.filter(item => !item.completed).length;
+				}
+			},
+			methods: {
+				addTask() {
+					axios.post('/task', {
+						title: this.taskName
+					}).then((res) => {
+						if (res.status == 200) {
+							if (this.curList != 'completed') {
+								this.taskList.push(res.data);
+							}
+							this.originTaskList.push(res.data);
+							this.taskName = '';
+						}
+					});
+				},
+				deleteTask(id) {
+					axios.delete('/task', {
+						data: {
+							ids: [id]
+						}
+					}).then((res) => {
+						if (res.status == 200) {
+							console.log(res.data);
+							const taskListIndex = this.taskList.findIndex(task => task._id == id);
+							this.taskList.splice(taskListIndex, 1);
+
+							const originTaskListIndex = this.originTaskList.findIndex(task => task._id == id);
+							this.originTaskList.splice(originTaskListIndex, 1);
+						}
+					});
+				},
+				updateStatus(task) {
+					console.log(task.completed);
+					axios.put('/task/status', {
+						id: task._id,
+						completed: task.completed
+					}).then((res) => {
+						if (res.status == 200) {
+							this.originTaskList.find(item => item._id == task._id).completed = task.completed;
+						}
+					});
+				},
+				dblclickTitle(task) {
+					task.__editing = true;
+				},
+				updateTitle(task) {
+					console.log(task);
+					axios.put('/task/title', {
+						id: task._id,
+						title: task.title
+					}).then(res => {
+						if (res.status == 200) {
+							console.log(res.data);
+							task.__editing = false;
+							var originTask = this.originTaskList.find(item => item._id == task._id);
+							originTask.title = task.title;
+							originTask.__editing = task.__editing;
+						}
+					});
+				},
+				filterActive() {
+					this.taskList = this.originTaskList.filter(item => !item.completed);
+					this.curList = 'active';
+				},
+				filterCompleted() {
+					this.taskList = this.originTaskList.filter(item => item.completed);
+					this.curList = 'completed';
+				},
+				filterAll() {
+					this.taskList = this.originTaskList.slice();
+					this.curList = 'all';
+				},
+				clearCompleted() {
+					const arr = this.originTaskList.filter(item => item.completed);
+					const ids = arr.map(item => item._id);
+					axios.delete('/task', {
+						data: {
+							ids
+						}
+					}).then((res) => {
+						if (res.status == 200) {
+							this.taskList = this.taskList.filter(item => !ids.includes(item._id));
+							this.originTaskList = this.originTaskList.filter(item => !ids.includes(item._id));
+						}
+					});
+				}
+			},
+			// 在vm事件创建完成就会自动调用
+			created() {
+				axios.get('/task/list').then((res) => {
+					if (res.status == 200) {
+						res.data.forEach(item => {
+							item.__editing = false;
+						});
+						this.taskList = res.data;
+						this.originTaskList = res.data.slice();
+					}
+				});
+			}
+		});
+
+	</script>
+
+</body>
+
+</html>
