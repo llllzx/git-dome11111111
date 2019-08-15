@@ -41,8 +41,23 @@ $('#avatar').on('change', function () {
         console.log(data);
         //实现头像预览功能
         $('#preview').attr('src', data[0].avatar);
-        $('#avatarHidden').val(data[0].avatar);
+        $('#avatarHidden').val(data[0].avatar); 
         
       }
   });
 });
+
+//渲染用户列表页面
+$.ajax({
+  type: 'get',
+  url: '/users',
+  success: function (respon) {
+    console.log(respon);
+    var html = template('userTpl', { data: respon });
+    // console.log(html);
+    $('#userBox').html(html);
+  }
+});
+
+// 渲染编辑用户页面
+$()
