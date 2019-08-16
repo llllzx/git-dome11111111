@@ -9,7 +9,7 @@ $('#loginOut').on('click', function () {
       },
       error: function () {
         console.log('退出失败');
-      }         
+      }
     });
   };
 });
